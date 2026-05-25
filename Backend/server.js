@@ -4,11 +4,12 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Connect to Database
-// connectDB(); // Uncomment when MongoDB is ready
+// MongoDB se connect karte hain. Iske bina data save/read nahi ho sakta.
+connectDB();
 
 const PORT = process.env.PORT || 5000;
 
+// Server ko start karte hain.
 app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
