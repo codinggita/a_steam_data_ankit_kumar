@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/gameController');
 
-// ==================== GAME KE BASIC ROUTES ====================
+//1111111 ==================== GAME KE BASIC ROUTES ====================
 // Ye routes game info ka CRUD (Create, Read, Update, Delete) karte hain
 // Matlab naya game add karo, game dekho, change karo, delete karo
 
@@ -64,12 +64,90 @@ router.patch('/:appid', controller.updateGame);
 router.delete('/:appid', controller.deleteGame);
 
 
+// 222222==================== GAMES KO FILTER KARNE KE ROUTES ====================
+// In routes se aap games ko different categories se search kar sakte ho
+// Jaise: sirf action games chahiye? / sirf cheap games? / sirf PS5 ke games?
+// Ye sab kuch yahan milega!
+
+// GET /api/v1/games/genre/:genre
+// Genre (category) ke hisaab se games dikhata hai
+// Examples:
+//   /api/v1/games/genre/action       → Action games
+//   /api/v1/games/genre/rpg          → RPG games  
+//   /api/v1/games/genre/strategy     → Strategy games
+router.get('/genre/:genre', controller.getGamesByGenre);
+
+// GET /api/v1/games/developer/:developer
+// Same developer wale sab games dikhata hai
+// Examples:
+//   /api/v1/games/developer/Rockstar Games    → GTA wale games
+//   /api/v1/games/developer/FromSoftware      → Dark Souls wale games
+router.get('/developer/:developer', controller.getGamesByDeveloper);
+
+// GET /api/v1/games/publisher/:publisher
+// Same publisher wale sab games dikhata hai
+// Publisher = company jo game publish (release) karta hai
+// Examples:
+//   /api/v1/games/publisher/Sony               → Sony ke games
+//   /api/v1/games/publisher/Microsoft Studios  → Xbox/Microsoft ke games
+router.get('/publisher/:publisher', controller.getGamesByPublisher);
+
+// GET /api/v1/games/platform/:platform
+// Specific gaming platform ke liye available games dikhata hai
+// Platform = console ya system jispar game chalega
+// Examples:
+//   /api/v1/games/platform/PC             → Windows/Linux games
+//   /api/v1/games/platform/PlayStation    → PS4/PS5 ke games
+//   /api/v1/games/platform/Xbox           → Xbox ke games
+//   /api/v1/games/platform/Nintendo       → Switch games
+router.get('/platform/:platform', controller.getGamesByPlatform);
+
+// GET /api/v1/games/tag/:tag
+// Tags se games search karo - ek game ke multiple tags ho sakte hain
+// Tag = chhota label jo game ke baare mein bataye
+// Examples:
+//   /api/v1/games/tag/multiplayer       → Online khelne wale games
+//   /api/v1/games/tag/survival          → Survival games
+//   /api/v1/games/tag/indie            → Small indie developers ke games
+router.get('/tag/:tag', controller.getGamesByTag);
+
+// GET /api/v1/games/release-year/:year
+// Ek specific saal mein release hone wale games dikhata hai
+// Examples:
+//   /api/v1/games/release-year/2023     → 2023 mein aye games
+//   /api/v1/games/release-year/2024     → 2024 mein aye games
+router.get('/release-year/:year', controller.getGamesByReleaseYear);
+
+// GET /api/v1/games/rating/:rating
+// Rating (review score) ke hisaab se games dikhata hai
+// Rating = log ne game ko kitna badhiya rate kiya (1-100 ya 1-10)
+// Examples:
+//   /api/v1/games/rating/90             → 90+ rating wale games
+//   /api/v1/games/rating/75             → 75+ rating wale games (bohot achche!)
+router.get('/rating/:rating', controller.getGamesByRating);
+
+// GET /api/v1/games/price/:price
+// Price range ke hisaab se games dikhata hai
+// Examples:
+//   /api/v1/games/price/0-500           → 0 se 500 rupees tak
+//   /api/v1/games/price/500-1000        → 500 se 1000 rupees tak
+//   /api/v1/games/price/1000-above      → 1000 rupees se upar
+router.get('/price/:price', controller.getGamesByPrice);
+
+// GET /api/v1/games/feature/:feature
+// Special features ke hisaab se games dikhata hai
+// Feature = game ki specialty - jaise achievements, multiplayer, etc
+// Examples:
+//   /api/v1/games/feature/achievements  → Achievements wale games
+//   /api/v1/games/feature/coop          → Co-op (ek saath 2 log) khel sakte ho
+//   /api/v1/games/feature/cloud-save    → Cloud save feature
+router.get('/feature/:feature', controller.getGamesByFeature);
 
 
 
 
 
-// ==================== GAME INFORMATION ROUTES ====================
+//333333 <<==================== GAME INFORMATION ROUTES ====================>>
 // Screenshots, videos, reviews, achievements, updates, news sab yahan
 
 // GET /api/v1/games/:appid/screenshots
