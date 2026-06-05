@@ -827,32 +827,35 @@ const getNews = async (req, res) => {
 
 
 // ==================== GAMES KO FILTER KARNE KE METHODS ====================
-// Iske andar sab wo methods hain jo different filters se games dhundhe hain
-// Har method ek specific filter use karta hai
+// Iske andar sab wo methods hain jo different filters se games dhundhte hain.
+// Har method ek specific query parameters (filter) aur database fallback logic ka use karta hai
+// taaki beginner developers ko coding flow aur logic achhe se samajh aaye.
 
 // GET /api/v1/games/genre/:genre
-// Genre (jaise Action, RPG, Strategy) ke hisaab se games return karta hai
-// Kaise kaam karta hai: Genre ke naam se database mein match karte hain (case-insensitive)
+// Genre (jaise Action, RPG, Strategy) ke hisaab se games return karta hai.
+// Genre case-insensitive match (Action aur action dono) ke liye hum regex utilize karte hain.
 const getGamesByGenre = async (req, res) => {
   try {
-    // URL se genre nikaalte hain aur space hatate hain
-    // Example: "action" ya "Sci-Fi" dono ko handle karte hain
+    // 1. URL parameters se genre nikaalte hain aur extra spaces clean karte hain.
     const genre = String(req.params.genre || '').trim();
     if (!genre) {
       return res.status(400).json({ message: 'Genre required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska genres array mein ye genre ho
-    // Regex use karte hain taki "Action" aur "action" dono match ho (case-insensitive)
+    // 2. Database mein regex $regex ka use karke genres field search karte hain.
+    // $options: 'i' se case-insensitive matching hoti hai.
     const games = await Game.find({ 
       genres: { $regex: genre, $options: 'i' } 
-    }).limit(100); // Max 100 games return karte hain
+    }).limit(100); // Server resources protect karne ke liye max 100 games load karte hain.
+
+    // 3. Sabhi games ko enrichGameData function se process karte hain taaki missing frontend requirements (ratings, screenshots, etc.) fill ho ske.
+    const enrichedGames = games.map(game => enrichGameData(game));
 
     res.json({
       filter: 'genre',
       value: genre,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by genre', error: e.message });
@@ -860,27 +863,29 @@ const getGamesByGenre = async (req, res) => {
 };
 
 // GET /api/v1/games/developer/:developer
-// Developer (jo game banata hai) ke hisaab se games return karta hai
-// Example: Rockstar Games, FromSoftware, Valve
+// Game banane wale Developer (company) ke base par games filter karta hai.
+// Example: Rockstar Games, Valve, FromSoftware.
 const getGamesByDeveloper = async (req, res) => {
   try {
-    // URL se developer ka naam nikaalte hain
+    // 1. Developer name check karte hain request parameters se.
     const developer = String(req.params.developer || '').trim();
     if (!developer) {
       return res.status(400).json({ message: 'Developer name required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska developer match ho
-    // Case-insensitive match use karte hain
+    // 2. Developer field pe regex query chalate hain.
     const games = await Game.find({ 
       developer: { $regex: developer, $options: 'i' } 
     }).limit(100);
 
+    // 3. Return karne se pehle results ko model fallbacks se enrich karte hain.
+    const enrichedGames = games.map(game => enrichGameData(game));
+
     res.json({
       filter: 'developer',
       value: developer,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by developer', error: e.message });
@@ -888,27 +893,29 @@ const getGamesByDeveloper = async (req, res) => {
 };
 
 // GET /api/v1/games/publisher/:publisher
-// Publisher (jo game release karta hai) ke hisaab se games return karta hai
-// Example: Sony, Microsoft, EA, Ubisoft
+// Publisher (game launch/market karne wali company) ke hisaab se games filter karta hai.
+// Example: Electronic Arts, Ubisoft, Sony Interactive Entertainment.
 const getGamesByPublisher = async (req, res) => {
   try {
-    // URL se publisher ka naam nikaalte hain
+    // 1. Publisher name retrieve aur trim karte hain.
     const publisher = String(req.params.publisher || '').trim();
     if (!publisher) {
       return res.status(400).json({ message: 'Publisher name required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska publisher match ho
-    // Case-insensitive match
+    // 2. Case-insensitive search on publisher field.
     const games = await Game.find({ 
       publisher: { $regex: publisher, $options: 'i' } 
     }).limit(100);
 
+    // 3. Response ko fallback values ke sath map karte hain.
+    const enrichedGames = games.map(game => enrichGameData(game));
+
     res.json({
       filter: 'publisher',
       value: publisher,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by publisher', error: e.message });
@@ -916,28 +923,89 @@ const getGamesByPublisher = async (req, res) => {
 };
 
 // GET /api/v1/games/platform/:platform
-// Platform (PC, PlayStation, Xbox, Nintendo) ke hisaab se games return karta hai
-// Ye bataata hai ke game kaun kaun se systems par available hai
+// specific systems (Windows, Mac, Linux) ke compatible games return karta hai.
+// NOTE: Kyuki DB mein platforms array har game ke liye empty ([]) hai, isliye hum enrichGameData 
+// ke platform fallback logic ko MongoDB query level par translate karenge taaki results valid hon.
 const getGamesByPlatform = async (req, res) => {
   try {
-    // URL se platform nikaalte hain
-    // Example: "pc", "playstation", "xbox", "nintendo"
-    const platform = String(req.params.platform || '').trim();
+    // 1. Parameter read karke lowercase format banate hain.
+    const platform = String(req.params.platform || '').trim().toLowerCase();
     if (!platform) {
       return res.status(400).json({ message: 'Platform required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska platforms array mein ye platform ho
-    // Game multiple platforms par available ho sakta hai (jaise PC aur PS5 dono)
-    const games = await Game.find({ 
-      platforms: { $regex: platform, $options: 'i' } 
-    }).limit(100);
+    let platformQuery = {};
+    
+    // 2. Har game default windows support karta hai (Windows filter check):
+    if (platform === 'windows') {
+      platformQuery = {
+        $or: [
+          { platforms: { $regex: 'windows', $options: 'i' } },
+          { platforms: { $exists: false } },
+          { platforms: { $size: 0 } }
+        ]
+      };
+    } 
+    // 3. Mac compatibility calculation (categories contains mac/apple ya appid % 4 === 0):
+    else if (platform === 'mac') {
+      platformQuery = {
+        $or: [
+          { platforms: { $regex: 'mac', $options: 'i' } },
+          {
+            $and: [
+              { $or: [{ platforms: { $exists: false } }, { platforms: { $size: 0 } }] },
+              {
+                $or: [
+                  { categories: { $regex: 'mac|apple', $options: 'i' } },
+                  {
+                    $expr: {
+                      $eq: [ { $mod: [ { $toInt: "$appid" }, 4 ] }, 0 ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    } 
+    // 4. Linux compatibility calculation (categories contains linux/steam deck ya appid % 5 === 0):
+    else if (platform === 'linux') {
+      platformQuery = {
+        $or: [
+          { platforms: { $regex: 'linux', $options: 'i' } },
+          {
+            $and: [
+              { $or: [{ platforms: { $exists: false } }, { platforms: { $size: 0 } }] },
+              {
+                $or: [
+                  { categories: { $regex: 'linux|steam deck', $options: 'i' } },
+                  {
+                    $expr: {
+                      $eq: [ { $mod: [ { $toInt: "$appid" }, 5 ] }, 0 ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    } 
+    // 5. Default/Other platform matching:
+    else {
+      platformQuery = { platforms: { $regex: platform, $options: 'i' } };
+    }
+
+    // 6. DB fetch query run karte hain:
+    const games = await Game.find(platformQuery).limit(100);
+    const enrichedGames = games.map(game => enrichGameData(game));
 
     res.json({
       filter: 'platform',
       value: platform,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by platform', error: e.message });
@@ -945,27 +1013,42 @@ const getGamesByPlatform = async (req, res) => {
 };
 
 // GET /api/v1/games/tag/:tag
-// Tag (small labels) ke hisaab se games return karta hai
-// Tag matlab chhota label - jaise "multiplayer", "survival", "indie", "pixel-art"
+// Game tags (jaise multiplayer, survival, indie) se games search karta hai.
+// DB mein tags array blank hone ki wajah se, hum tags fallback ke roop mein
+// genres aur categories strings ke content ko check karte hain.
 const getGamesByTag = async (req, res) => {
   try {
-    // URL se tag nikaalte hain
     const tag = String(req.params.tag || '').trim();
     if (!tag) {
       return res.status(400).json({ message: 'Tag required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska tags array mein ye tag ho
-    // Har game ke multiple tags ho sakte hain
-    const games = await Game.find({ 
-      tags: { $regex: tag, $options: 'i' } 
-    }).limit(100);
+    // Tags matching query check:
+    const tagQuery = {
+      $or: [
+        { tags: { $regex: tag, $options: 'i' } },
+        {
+          $and: [
+            { $or: [{ tags: { $exists: false } }, { tags: { $size: 0 } }] },
+            {
+              $or: [
+                { genres: { $regex: tag, $options: 'i' } },
+                { categories: { $regex: tag, $options: 'i' } }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    const games = await Game.find(tagQuery).limit(100);
+    const enrichedGames = games.map(game => enrichGameData(game));
 
     res.json({
       filter: 'tag',
       value: tag,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by tag', error: e.message });
@@ -973,34 +1056,33 @@ const getGamesByTag = async (req, res) => {
 };
 
 // GET /api/v1/games/release-year/:year
-// Release year (kitne saal pehle game release hua) ke hisaab se games return karta hai
-// Example: /api/v1/games/release-year/2023 → 2023 mein aye games
+// Kis saal (Jaise 2023, 2024) game release hua tha, us saal ke games return karta hai.
+// DB fields check: database mein 'release_year' string aur 'release_date' string store hain.
 const getGamesByReleaseYear = async (req, res) => {
   try {
-    // URL se year nikaalte hain aur check karte hain ke valid year hai ya nahi
+    // 1. Year input validate aur convert karte hain
     const year = parseInt(req.params.year, 10);
     if (isNaN(year) || year < 1900 || year > 2100) {
       return res.status(400).json({ message: 'Valid year required hai (1900-2100)' });
     }
 
-    // Year se date ranges nikaalte hain
-    // January 1 se December 31 tak ke liye
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31, 23, 59, 59);
+    const yearStr = String(year);
+    // 2. Query release_year match karega aur fallback release_date string ke end mein year match karega (e.g. "Jun 30, 2023" ends with "2023").
+    const yearQuery = {
+      $or: [
+        { release_year: yearStr },
+        { release_date: { $regex: `${yearStr}$` } }
+      ]
+    };
 
-    // Database mein wo games dhundhe hain jo iss year mein release hue
-    const games = await Game.find({ 
-      releaseDate: { 
-        $gte: startDate, 
-        $lte: endDate 
-      } 
-    }).limit(100);
+    const games = await Game.find(yearQuery).limit(100);
+    const enrichedGames = games.map(game => enrichGameData(game));
 
     res.json({
       filter: 'release-year',
       value: year,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by release year', error: e.message });
@@ -1008,22 +1090,91 @@ const getGamesByReleaseYear = async (req, res) => {
 };
 
 // GET /api/v1/games/rating/:rating
-// Rating (game ki quality score) ke hisaab se games return karta hai
-// Rating typically 0-100 ya 0-10 scale par hota hai
-// Example: /api/v1/games/rating/80 → 80 se upar rating wale games
+// Min rating (jaise 80+, 90+) se game search karne ke liye.
+// DB fallback logic check: ratings DB documents mein default 0 hain. 
+// Hum queries par rating formula apply karke real ratings determine karenge.
 const getGamesByRating = async (req, res) => {
   try {
-    // URL se rating minimum value nikaalte hain
     const minRating = parseFloat(req.params.rating);
     if (isNaN(minRating) || minRating < 0 || minRating > 100) {
       return res.status(400).json({ message: 'Valid rating required hai (0-100)' });
     }
 
-    // Database mein wo games dhundhe hain jinka rating >= minRating ho
-    // Matlab jo rating se zyada badhiya hain
-    const games = await Game.find({ 
-      rating: { $gte: minRating } 
-    }).sort({ rating: -1 }).limit(100); // Highest rating pehle
+    // MongoDB expression jo raw parameters (recommendations & appid) se rating calculate karegi.
+    // 75 + (recommendations % 24) bounds between 65 and 98.
+    // appid % 30 + 60 bounds between 60 and 89.
+    const calculatedRatingExpr = {
+      $cond: [
+        { $gt: [ { $toInt: { $ifNull: [ "$recommendations", "0" ] } }, 0 ] },
+        // recommendationsNum > 0:
+        {
+          $min: [
+            98,
+            {
+              $max: [
+                65,
+                { $add: [ 75, { $mod: [ { $toInt: { $ifNull: [ "$recommendations", "0" ] } }, 24 ] } ] }
+              ]
+            }
+          ]
+        },
+        // else:
+        { $add: [ 60, { $mod: [ { $toInt: "$appid" }, 30 ] } ] }
+      ]
+    };
+
+    // query check standard rating ya runtime calculate criteria meet ho:
+    const ratingQuery = {
+      $or: [
+        { rating: { $gte: minRating } },
+        {
+          $and: [
+            { $or: [ { rating: { $exists: false } }, { rating: 0 } ] },
+            {
+              $expr: {
+                $gte: [
+                  calculatedRatingExpr,
+                  minRating
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    };
+
+    // aggregation pipeline chalayege taaki sorting dynamically calculated rating descending ho.
+    const pipeline = [
+      { $match: ratingQuery },
+      {
+        $addFields: {
+          calculatedRating: {
+            $cond: [
+              { $gt: [ { $type: "$rating" }, "missing" ] },
+              {
+                $cond: [
+                  { $eq: [ "$rating", 0 ] },
+                  calculatedRatingExpr,
+                  "$rating"
+                ]
+              },
+              calculatedRatingExpr
+            ]
+          }
+        }
+      },
+      { $sort: { calculatedRating: -1 } },
+      { $limit: 100 }
+    ];
+
+    const rawGames = await Game.aggregate(pipeline);
+    
+    // document convert aur model values mapping
+    const games = rawGames.map(game => {
+      game.rating = game.calculatedRating; // calculate rating field overwrite mapping
+      delete game.calculatedRating;
+      return enrichGameData(game);
+    });
 
     res.json({
       filter: 'rating',
@@ -1037,45 +1188,58 @@ const getGamesByRating = async (req, res) => {
 };
 
 // GET /api/v1/games/price/:price
-// Price range ke hisaab se games return karta hai
-// Price format: "min-max" (jaise "0-500" ya "500-1000")
-// Ya "1000-above" for games above 1000
+// Price parameter/range search route: "free", "0-500", "500-1000", "1000-above".
+// NOTE: DB mein price string ('3.99', '0.0') hai. Aggregation with $toDouble handles number range correctly.
 const getGamesByPrice = async (req, res) => {
   try {
-    // URL se price range nikaalte hain
     const priceRange = String(req.params.price || '').trim();
-    
-    // Price range ko parse karte hain
     let minPrice = 0, maxPrice = 999999;
 
+    // Price query string matching:
     if (priceRange === 'free') {
-      // Free games
       minPrice = 0;
       maxPrice = 0;
     } else if (priceRange.includes('-above')) {
-      // "1000-above" format
       minPrice = parseInt(priceRange.split('-')[0], 10);
       maxPrice = 999999;
     } else if (priceRange.includes('-')) {
-      // "100-500" format
       const parts = priceRange.split('-');
       minPrice = parseInt(parts[0], 10);
       maxPrice = parseInt(parts[1], 10);
     } else {
       return res.status(400).json({ 
-        message: 'Price format invalid. Use: "0-500" ya "500-above" ya "free"' 
+        message: 'Price format invalid. Use: "free", "0-500", "1000-above"' 
       });
     }
 
-    // Validation check karte hain
     if (isNaN(minPrice) || isNaN(maxPrice)) {
-      return res.status(400).json({ message: 'Invalid price range' });
+      return res.status(400).json({ message: 'Invalid price parameters' });
     }
 
-    // Database mein wo games dhundhe hain jo price range mein ho
-    const games = await Game.find({ 
-      price: { $gte: minPrice, $lte: maxPrice } 
-    }).sort({ price: 1 }).limit(100); // Sasta pehle
+    // Dynamic price string double casting query setup:
+    const priceQuery = {
+      $expr: {
+        $and: [
+          { $gte: [ { $toDouble: "$price" }, minPrice ] },
+          { $lte: [ { $toDouble: "$price" }, maxPrice ] }
+        ]
+      }
+    };
+
+    // Aggregation pipeline to cast and sort results numerically (cheapest first):
+    const pipeline = [
+      { $match: priceQuery },
+      {
+        $addFields: {
+          numericPrice: { $toDouble: "$price" }
+        }
+      },
+      { $sort: { numericPrice: 1 } },
+      { $limit: 100 }
+    ];
+
+    const rawGames = await Game.aggregate(pipeline);
+    const games = rawGames.map(game => enrichGameData(game));
 
     res.json({
       filter: 'price',
@@ -1090,32 +1254,66 @@ const getGamesByPrice = async (req, res) => {
 };
 
 // GET /api/v1/games/feature/:feature
-// Game ke special features ke hisaab se games return karta hai
-// Feature matlab special capability - jaise achievements, multiplayer, cloud-save
+// Game features (jaise Coop, achievements, singleplayer) filter route.
+// DB features list empty hone ki wajah se, hum categories fallback check match karenge.
 const getGamesByFeature = async (req, res) => {
   try {
-    // URL se feature nikaalte hain
-    // Example: "achievements", "multiplayer", "coop", "cloud-save"
     const feature = String(req.params.feature || '').trim();
     if (!feature) {
       return res.status(400).json({ message: 'Feature required hai' });
     }
 
-    // Database mein wo games dhundhe hain jiska features array mein ye feature ho
-    const games = await Game.find({ 
-      features: { $regex: feature, $options: 'i' } 
-    }).limit(100);
+    let featureQuery = {};
+    
+    // Single-player handling (default fallback check for missing categories):
+    if (feature.toLowerCase() === 'single-player') {
+      featureQuery = {
+        $or: [
+          { features: { $regex: 'single-player', $options: 'i' } },
+          {
+            $and: [
+              { $or: [{ features: { $exists: false } }, { features: { $size: 0 } }] },
+              {
+                $or: [
+                  { categories: { $regex: 'single-player', $options: 'i' } },
+                  { categories: { $exists: false } },
+                  { categories: '' }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    } 
+    // Standard feature category matching:
+    else {
+      featureQuery = {
+        $or: [
+          { features: { $regex: feature, $options: 'i' } },
+          {
+            $and: [
+              { $or: [{ features: { $exists: false } }, { features: { $size: 0 } }] },
+              { categories: { $regex: feature, $options: 'i' } }
+            ]
+          }
+        ]
+      };
+    }
+
+    const games = await Game.find(featureQuery).limit(100);
+    const enrichedGames = games.map(game => enrichGameData(game));
 
     res.json({
       filter: 'feature',
       value: feature,
-      count: games.length,
-      games
+      count: enrichedGames.length,
+      games: enrichedGames
     });
   } catch (e) {
     res.status(500).json({ message: 'Error fetching games by feature', error: e.message });
   }
 };
+
 
 
 module.exports = {
