@@ -11,6 +11,168 @@ const parseAppId = (value) => {
 // appid string ke roop mein store aur compare karte hain.
 const findAppIdQuery = (appid) => ({ appid });
 
+// enrichGameData: Game document ko check karke rating, downloads, platforms aur extra details 
+// dynamically add karta hai agar database mein ye information missing hai (pre-loaded games ke liye).
+const enrichGameData = (game) => {
+  if (!game) return game;
+  
+  // Game document ko raw JavaScript object mein badalte hain taki changes modify kar sakein.
+  const gameObj = game.toObject ? game.toObject() : game;
+  
+  const appidNum = parseInt(gameObj.appid, 10) || 0;
+  const recommendationsNum = parseInt(gameObj.recommendations, 10) || 0;
+  
+  // 1. Rating fallback: recommendations ke hisaab se realistic rating (65-98) generate karte hain.
+  if (!gameObj.rating) {
+    if (recommendationsNum > 0) {
+      gameObj.rating = Math.min(98, Math.max(65, 75 + (recommendationsNum % 24)));
+    } else {
+      gameObj.rating = 60 + (appidNum % 30);
+    }
+  }
+  
+  // 2. Downloads fallback: recommendations aur appid se realistic download number calculate karte hain.
+  if (!gameObj.downloads) {
+    gameObj.downloads = (recommendationsNum * 12) + (appidNum % 500) + 50;
+  }
+  
+  // 3. Platforms fallback: categories text parse karte hain ya default value PC, Mac, Linux set karte hain.
+  if (!gameObj.platforms || !gameObj.platforms.length) {
+    const categoriesStr = String(gameObj.categories || '').toLowerCase();
+    const platforms = ['windows']; // Har Steam game Windows support karta hai
+    if (categoriesStr.includes('mac') || categoriesStr.includes('apple') || (appidNum % 4 === 0)) {
+      platforms.push('mac');
+    }
+    if (categoriesStr.includes('linux') || categoriesStr.includes('steam deck') || (appidNum % 5 === 0)) {
+      platforms.push('linux');
+    }
+    gameObj.platforms = platforms;
+  }
+  
+  // 4. Features fallback: categories ko semicolon se split karke list banate hain.
+  if (!gameObj.features || !gameObj.features.length) {
+    if (gameObj.categories) {
+      gameObj.features = gameObj.categories.split(';').map(f => f.trim()).filter(Boolean);
+    } else {
+      gameObj.features = ['Single-player'];
+    }
+  }
+  
+  // 5. Tags fallback: genres aur categories ko tags array mein merge karte hain.
+  if (!gameObj.tags || !gameObj.tags.length) {
+    const tagsSet = new Set();
+    if (gameObj.genres) {
+      const genreStr = typeof gameObj.genres === 'string' ? gameObj.genres : String(gameObj.genres);
+      genreStr.split(';').forEach(g => tagsSet.add(g.trim()));
+    }
+    if (gameObj.features) {
+      gameObj.features.forEach(f => tagsSet.add(f));
+    }
+    gameObj.tags = Array.from(tagsSet);
+  }
+  
+  // 6. Screenshots fallback: mock screenshots links generate karte hain.
+  if (!gameObj.screenshots || !gameObj.screenshots.length) {
+    gameObj.screenshots = [
+      `https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=600&auto=format&fit=crop`,
+      `https://images.unsplash.com/photo-1552820728-8b83bb6b773f?q=80&w=600&auto=format&fit=crop`
+    ];
+  }
+  
+  // 7. Trailers fallback: mock trailers video links.
+  if (!gameObj.trailers || !gameObj.trailers.length) {
+    gameObj.trailers = [
+      `https://www.w3schools.com/html/mov_bbb.mp4`
+    ];
+  }
+  
+  // 8. Reviews fallback: reviews blank hone par default user reviews add karte hain.
+  if (!gameObj.reviews || !gameObj.reviews.length) {
+    gameObj.reviews = [
+      {
+        _id: `rev-${appidNum}-1`,
+        userId: 'gamer_alok',
+        rating: 5,
+        reviewText: `Bilkul gazab game hai! Iska gameplay aur graphics solid hain. Highly recommended!`,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      },
+      {
+        _id: `rev-${appidNum}-2`,
+        userId: 'pro_steamer',
+        rating: 4,
+        reviewText: `Acha game hai, story line badhiya hai. Lekin minor bugs hain jo patches se fix ho sakte hain.`,
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)
+      }
+    ];
+  }
+  
+  // 9. System Requirements fallback: basic PC configurations specifications.
+  if (!gameObj.systemRequirements) {
+    gameObj.systemRequirements = {
+      minimum: {
+        os: 'Windows 10 64-bit',
+        processor: 'Intel Core i5-4460 / AMD FX-6300',
+        memory: '8 GB RAM',
+        graphics: 'NVIDIA GeForce GTX 760 / AMD Radeon R7 260x with 2GB VRAM',
+        storage: '25 GB available space'
+      },
+      recommended: {
+        os: 'Windows 11 64-bit',
+        processor: 'Intel Core i7-3770 / AMD FX-9590',
+        memory: '16 GB RAM',
+        graphics: 'NVIDIA GeForce GTX 1060 with 6GB VRAM / AMD Radeon RX 480 with 8GB VRAM',
+        storage: '25 GB available space (SSD recommended)'
+      }
+    };
+  }
+  
+  // 10. DLC list fallback.
+  if (!gameObj.dlcList || !gameObj.dlcList.length) {
+    gameObj.dlcList = [
+      { name: `${gameObj.name} - Sound Track Bundle`, price: 2.99, appid: `${appidNum + 1}` },
+      { name: `${gameObj.name} - Elite Skins Pack`, price: 4.99, appid: `${appidNum + 2}` }
+    ];
+  }
+  
+  // 11. Achievements fallback.
+  if (!gameObj.achievements || !gameObj.achievements.length) {
+    gameObj.achievements = [
+      { name: 'First Blood', description: 'Kill your first enemy in the game', unlocked: true },
+      { name: 'Survivor', description: 'Survive for 1 hour without dying', unlocked: false },
+      { name: 'Completionist', description: 'Unlock 100% of all achievements', unlocked: false }
+    ];
+  }
+  
+  // 12. Leaderboards fallback.
+  if (!gameObj.leaderboards || !gameObj.leaderboards.length) {
+    gameObj.leaderboards = [
+      { rank: 1, username: 'GamerGod_99', score: 99990 },
+      { rank: 2, username: 'ShadowBlade', score: 87450 },
+      { rank: 3, username: 'NinjaSteam', score: 75000 }
+    ];
+  }
+  
+  // 13. Updates fallback.
+  if (!gameObj.updates || !gameObj.updates.length) {
+    gameObj.updates = [
+      { version: 'v1.0.2', title: 'Stability Patch', description: 'Fixed crash issues on startup and optimized memory usage.', date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+      { version: 'v1.0.1', title: 'Launch Hotfix', description: 'Resolved audio delay issue and fixed spelling mistakes.', date: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) }
+    ];
+  }
+  
+  // 14. News fallback.
+  if (!gameObj.news || !gameObj.news.length) {
+    gameObj.news = [
+      { title: `${gameObj.name} Is Now Live!`, description: 'We are thrilled to launch the game worldwide. Thank you for your support!', publishedDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+      { title: 'Upcoming Summer DLC Announcement', description: 'Stay tuned for a brand new map and outfits coming this July!', publishedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) }
+    ];
+  }
+  
+  return gameObj;
+};
+
 // GET /api/v1/games
 // Yahan se game list milta hai. search aur pagination optional hai.
 const getGames = async (req, res) => {
@@ -48,7 +210,10 @@ const getGameByAppId = async (req, res) => {
 
     const game = await Game.findOne(findAppIdQuery(appid));
     if (!game) return res.status(404).json({ message: 'Game not found' });
-    res.json(game);
+    
+    // Game details ko fallback parameters (rating, downloads, etc.) se enrich karte hain.
+    const enrichedGame = enrichGameData(game);
+    res.json(enrichedGame);
   } catch (e) {
     res.status(500).json({ message: 'Error fetching game', error: e.message });
   }
@@ -660,6 +825,299 @@ const getNews = async (req, res) => {
   }
 };
 
+
+// ==================== GAMES KO FILTER KARNE KE METHODS ====================
+// Iske andar sab wo methods hain jo different filters se games dhundhe hain
+// Har method ek specific filter use karta hai
+
+// GET /api/v1/games/genre/:genre
+// Genre (jaise Action, RPG, Strategy) ke hisaab se games return karta hai
+// Kaise kaam karta hai: Genre ke naam se database mein match karte hain (case-insensitive)
+const getGamesByGenre = async (req, res) => {
+  try {
+    // URL se genre nikaalte hain aur space hatate hain
+    // Example: "action" ya "Sci-Fi" dono ko handle karte hain
+    const genre = String(req.params.genre || '').trim();
+    if (!genre) {
+      return res.status(400).json({ message: 'Genre required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska genres array mein ye genre ho
+    // Regex use karte hain taki "Action" aur "action" dono match ho (case-insensitive)
+    const games = await Game.find({ 
+      genres: { $regex: genre, $options: 'i' } 
+    }).limit(100); // Max 100 games return karte hain
+
+    res.json({
+      filter: 'genre',
+      value: genre,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by genre', error: e.message });
+  }
+};
+
+// GET /api/v1/games/developer/:developer
+// Developer (jo game banata hai) ke hisaab se games return karta hai
+// Example: Rockstar Games, FromSoftware, Valve
+const getGamesByDeveloper = async (req, res) => {
+  try {
+    // URL se developer ka naam nikaalte hain
+    const developer = String(req.params.developer || '').trim();
+    if (!developer) {
+      return res.status(400).json({ message: 'Developer name required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska developer match ho
+    // Case-insensitive match use karte hain
+    const games = await Game.find({ 
+      developer: { $regex: developer, $options: 'i' } 
+    }).limit(100);
+
+    res.json({
+      filter: 'developer',
+      value: developer,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by developer', error: e.message });
+  }
+};
+
+// GET /api/v1/games/publisher/:publisher
+// Publisher (jo game release karta hai) ke hisaab se games return karta hai
+// Example: Sony, Microsoft, EA, Ubisoft
+const getGamesByPublisher = async (req, res) => {
+  try {
+    // URL se publisher ka naam nikaalte hain
+    const publisher = String(req.params.publisher || '').trim();
+    if (!publisher) {
+      return res.status(400).json({ message: 'Publisher name required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska publisher match ho
+    // Case-insensitive match
+    const games = await Game.find({ 
+      publisher: { $regex: publisher, $options: 'i' } 
+    }).limit(100);
+
+    res.json({
+      filter: 'publisher',
+      value: publisher,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by publisher', error: e.message });
+  }
+};
+
+// GET /api/v1/games/platform/:platform
+// Platform (PC, PlayStation, Xbox, Nintendo) ke hisaab se games return karta hai
+// Ye bataata hai ke game kaun kaun se systems par available hai
+const getGamesByPlatform = async (req, res) => {
+  try {
+    // URL se platform nikaalte hain
+    // Example: "pc", "playstation", "xbox", "nintendo"
+    const platform = String(req.params.platform || '').trim();
+    if (!platform) {
+      return res.status(400).json({ message: 'Platform required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska platforms array mein ye platform ho
+    // Game multiple platforms par available ho sakta hai (jaise PC aur PS5 dono)
+    const games = await Game.find({ 
+      platforms: { $regex: platform, $options: 'i' } 
+    }).limit(100);
+
+    res.json({
+      filter: 'platform',
+      value: platform,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by platform', error: e.message });
+  }
+};
+
+// GET /api/v1/games/tag/:tag
+// Tag (small labels) ke hisaab se games return karta hai
+// Tag matlab chhota label - jaise "multiplayer", "survival", "indie", "pixel-art"
+const getGamesByTag = async (req, res) => {
+  try {
+    // URL se tag nikaalte hain
+    const tag = String(req.params.tag || '').trim();
+    if (!tag) {
+      return res.status(400).json({ message: 'Tag required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska tags array mein ye tag ho
+    // Har game ke multiple tags ho sakte hain
+    const games = await Game.find({ 
+      tags: { $regex: tag, $options: 'i' } 
+    }).limit(100);
+
+    res.json({
+      filter: 'tag',
+      value: tag,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by tag', error: e.message });
+  }
+};
+
+// GET /api/v1/games/release-year/:year
+// Release year (kitne saal pehle game release hua) ke hisaab se games return karta hai
+// Example: /api/v1/games/release-year/2023 → 2023 mein aye games
+const getGamesByReleaseYear = async (req, res) => {
+  try {
+    // URL se year nikaalte hain aur check karte hain ke valid year hai ya nahi
+    const year = parseInt(req.params.year, 10);
+    if (isNaN(year) || year < 1900 || year > 2100) {
+      return res.status(400).json({ message: 'Valid year required hai (1900-2100)' });
+    }
+
+    // Year se date ranges nikaalte hain
+    // January 1 se December 31 tak ke liye
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31, 23, 59, 59);
+
+    // Database mein wo games dhundhe hain jo iss year mein release hue
+    const games = await Game.find({ 
+      releaseDate: { 
+        $gte: startDate, 
+        $lte: endDate 
+      } 
+    }).limit(100);
+
+    res.json({
+      filter: 'release-year',
+      value: year,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by release year', error: e.message });
+  }
+};
+
+// GET /api/v1/games/rating/:rating
+// Rating (game ki quality score) ke hisaab se games return karta hai
+// Rating typically 0-100 ya 0-10 scale par hota hai
+// Example: /api/v1/games/rating/80 → 80 se upar rating wale games
+const getGamesByRating = async (req, res) => {
+  try {
+    // URL se rating minimum value nikaalte hain
+    const minRating = parseFloat(req.params.rating);
+    if (isNaN(minRating) || minRating < 0 || minRating > 100) {
+      return res.status(400).json({ message: 'Valid rating required hai (0-100)' });
+    }
+
+    // Database mein wo games dhundhe hain jinka rating >= minRating ho
+    // Matlab jo rating se zyada badhiya hain
+    const games = await Game.find({ 
+      rating: { $gte: minRating } 
+    }).sort({ rating: -1 }).limit(100); // Highest rating pehle
+
+    res.json({
+      filter: 'rating',
+      value: minRating,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by rating', error: e.message });
+  }
+};
+
+// GET /api/v1/games/price/:price
+// Price range ke hisaab se games return karta hai
+// Price format: "min-max" (jaise "0-500" ya "500-1000")
+// Ya "1000-above" for games above 1000
+const getGamesByPrice = async (req, res) => {
+  try {
+    // URL se price range nikaalte hain
+    const priceRange = String(req.params.price || '').trim();
+    
+    // Price range ko parse karte hain
+    let minPrice = 0, maxPrice = 999999;
+
+    if (priceRange === 'free') {
+      // Free games
+      minPrice = 0;
+      maxPrice = 0;
+    } else if (priceRange.includes('-above')) {
+      // "1000-above" format
+      minPrice = parseInt(priceRange.split('-')[0], 10);
+      maxPrice = 999999;
+    } else if (priceRange.includes('-')) {
+      // "100-500" format
+      const parts = priceRange.split('-');
+      minPrice = parseInt(parts[0], 10);
+      maxPrice = parseInt(parts[1], 10);
+    } else {
+      return res.status(400).json({ 
+        message: 'Price format invalid. Use: "0-500" ya "500-above" ya "free"' 
+      });
+    }
+
+    // Validation check karte hain
+    if (isNaN(minPrice) || isNaN(maxPrice)) {
+      return res.status(400).json({ message: 'Invalid price range' });
+    }
+
+    // Database mein wo games dhundhe hain jo price range mein ho
+    const games = await Game.find({ 
+      price: { $gte: minPrice, $lte: maxPrice } 
+    }).sort({ price: 1 }).limit(100); // Sasta pehle
+
+    res.json({
+      filter: 'price',
+      value: priceRange,
+      priceRange: { min: minPrice, max: maxPrice },
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by price', error: e.message });
+  }
+};
+
+// GET /api/v1/games/feature/:feature
+// Game ke special features ke hisaab se games return karta hai
+// Feature matlab special capability - jaise achievements, multiplayer, cloud-save
+const getGamesByFeature = async (req, res) => {
+  try {
+    // URL se feature nikaalte hain
+    // Example: "achievements", "multiplayer", "coop", "cloud-save"
+    const feature = String(req.params.feature || '').trim();
+    if (!feature) {
+      return res.status(400).json({ message: 'Feature required hai' });
+    }
+
+    // Database mein wo games dhundhe hain jiska features array mein ye feature ho
+    const games = await Game.find({ 
+      features: { $regex: feature, $options: 'i' } 
+    }).limit(100);
+
+    res.json({
+      filter: 'feature',
+      value: feature,
+      count: games.length,
+      games
+    });
+  } catch (e) {
+    res.status(500).json({ message: 'Error fetching games by feature', error: e.message });
+  }
+};
+
+
 module.exports = {
   getGames,
   getGameByAppId,
@@ -685,4 +1143,14 @@ module.exports = {
   getLeaderboards,
   getUpdates,
   getNews,
+  // Filter methods
+  getGamesByGenre,
+  getGamesByDeveloper,
+  getGamesByPublisher,
+  getGamesByPlatform,
+  getGamesByTag,
+  getGamesByReleaseYear,
+  getGamesByRating,
+  getGamesByPrice,
+  getGamesByFeature,
 };
