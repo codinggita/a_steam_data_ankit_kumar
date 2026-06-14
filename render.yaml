@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: steam-games-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    rootDirectory: Backend
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+        placeholder: "Enter MongoDB connection string"
+      - key: JWT_SECRET
+        sync: false
+        placeholder: "Enter JWT secret key"
+      - key: JWT_EXPIRE
+        value: 1d
