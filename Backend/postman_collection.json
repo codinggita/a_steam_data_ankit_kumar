@@ -186,7 +186,7 @@
       "listen": "prerequest",
       "script": {
         "type": "text/javascript",
-        "exec": ["pm.globals.set(\"base_url\", \"http://localhost:5000/api/v1\");"]
+        "exec": ["pm.globals.set(\"base_url\", \"https://a-steam-data-ankit-kumar.onrender.com/api/v1\");"]
       }
     }
   ]
