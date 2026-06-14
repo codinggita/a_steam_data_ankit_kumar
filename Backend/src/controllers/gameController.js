@@ -14,7 +14,8 @@ const getGames = catchAsync(async (req, res) => {
     });
   }
 
-  const result = await gameService.getAllGames(page, limit);
+  // Pass req.query for dynamic query parameter filtering
+  const result = await gameService.getAllGames(page, limit, req.query);
   
   res.status(200).json({
     success: true,
@@ -232,4 +233,162 @@ module.exports = {
   archiveGame,
   restoreGame,
   getGameHistory
+};
+
+// Retrieve games by genre
+const getGamesByGenre = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { genre } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { genre });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by genre '${genre}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by developer
+const getGamesByDeveloper = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { developer } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { developer });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by developer '${developer}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by publisher
+const getGamesByPublisher = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { publisher } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { publisher });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by publisher '${publisher}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by platform
+const getGamesByPlatform = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { platform } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { platform });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by platform '${platform}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by tag
+const getGamesByTag = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { tag } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { tag });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by tag '${tag}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by release year
+const getGamesByReleaseYear = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { year } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { releaseYear: year });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by release year '${year}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by rating recommendations
+const getGamesByRating = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { rating } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { rating });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by rating threshold '${rating}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by exact price
+const getGamesByPrice = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { price } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { price });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by price '${price}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+// Retrieve games by feature
+const getGamesByFeature = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const { feature } = req.params;
+
+  const result = await gameService.getAllGames(page, limit, { feature });
+  res.status(200).json({
+    success: true,
+    message: `Games filtered by feature '${feature}' retrieved successfully`,
+    data: result.games,
+    pagination: result.pagination
+  });
+});
+
+module.exports = {
+  getGames,
+  getGameDetails,
+  createNewGame,
+  replaceGameDetails,
+  updateGameDetails,
+  deleteGame,
+  checkExists,
+  getSummary,
+  archiveGame,
+  restoreGame,
+  getGameHistory,
+  getGamesByGenre,
+  getGamesByDeveloper,
+  getGamesByPublisher,
+  getGamesByPlatform,
+  getGamesByTag,
+  getGamesByReleaseYear,
+  getGamesByRating,
+  getGamesByPrice,
+  getGamesByFeature
 };

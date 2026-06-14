@@ -35,6 +35,17 @@ router.route('/:appid/reviews/:reviewId')
   .patch(reviewController.updateReview)
   .delete(reviewController.deleteReview);
 
+// Route parameter filters (placed before generic /:appid route to prevent route parameter collision)
+router.get('/genre/:genre', gameController.getGamesByGenre);
+router.get('/developer/:developer', gameController.getGamesByDeveloper);
+router.get('/publisher/:publisher', gameController.getGamesByPublisher);
+router.get('/platform/:platform', gameController.getGamesByPlatform);
+router.get('/tag/:tag', gameController.getGamesByTag);
+router.get('/release-year/:year', gameController.getGamesByReleaseYear);
+router.get('/rating/:rating', gameController.getGamesByRating);
+router.get('/price/:price', gameController.getGamesByPrice);
+router.get('/feature/:feature', gameController.getGamesByFeature);
+
 router.route('/:appid')
   .get(gameController.getGameDetails)
   .put(gameController.replaceGameDetails)
