@@ -4,10 +4,12 @@ const gameController = require('../controllers/gameController');
 const subresourceController = require('../controllers/subresourceController');
 const reviewController = require('../controllers/reviewController');
 
+const { validateGameCreate, validateGameUpdate } = require('../middlewares/validationMiddleware');
+
 // Game endpoints mapped from route-rule.md
 router.route('/')
   .get(gameController.getGames)
-  .post(gameController.createNewGame);
+  .post(validateGameCreate, gameController.createNewGame);
 
 router.get('/exists/:appid', gameController.checkExists);
 router.get('/:appid/summary', gameController.getSummary);
@@ -73,7 +75,7 @@ router.get('/feature/:feature', gameController.getGamesByFeature);
 router.route('/:appid')
   .get(gameController.getGameDetails)
   .put(gameController.replaceGameDetails)
-  .patch(gameController.updateGameDetails)
+  .patch(validateGameUpdate, gameController.updateGameDetails)
   .delete(gameController.deleteGame);
 
 module.exports = router;
