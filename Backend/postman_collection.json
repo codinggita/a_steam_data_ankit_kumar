@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "8aaf5e82-c550-4470-92cb-cbac05c26bbc",
+    "name": "Steam Games API Collection",
+    "description": "Postman collection for testing the Steam Games MVC API endpoints including CRUD, filters, JWT authentication, custom middlewares, analytics, and stats.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"test_user_dev\",\n  \"email\": \"test_user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test_user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Games CRUD",
+      "item": [
+        {
+          "name": "Get Paginated Games",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/games?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["games"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Game Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/games/10",
+              "host": ["{{base_url}}"],
+              "path": ["games", "10"]
+            }
+          }
+        },
+        {
+          "name": "Create Game (Protected)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appid\": \"999999\",\n  \"name\": \"Portal 3\",\n  \"genres\": \"Action;Adventure;Puzzle\",\n  \"price\": \"29.99\",\n  \"recommendations\": \"150000\",\n  \"developer\": \"Valve\",\n  \"publisher\": \"Valve\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/protected/games",
+              "host": ["{{base_url}}"],
+              "path": ["protected", "games"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Top Rated Games",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/games/top-rated",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "games", "top-rated"]
+            }
+          }
+        },
+        {
+          "name": "Platform Distribution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/analytics/games/platform-distribution",
+              "host": ["{{base_url}}"],
+              "path": ["analytics", "games", "platform-distribution"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Statistics",
+      "item": [
+        {
+          "name": "Total Active Games Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stats/games/count",
+              "host": ["{{base_url}}"],
+              "path": ["stats", "games", "count"]
+            }
+          }
+        },
+        {
+          "name": "Average Price Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/stats/games/average-price",
+              "host": ["{{base_url}}"],
+              "path": ["stats", "games", "average-price"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": ["pm.globals.set(\"base_url\", \"http://localhost:5000/api/v1\");"]
+      }
+    }
+  ]
+}

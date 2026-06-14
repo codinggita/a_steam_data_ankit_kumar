@@ -13,6 +13,7 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const statsRoutes = require('./routes/statsRoutes');
 
 const requestLogger = require('./middlewares/loggerMiddleware');
+const { generalLimiter } = require('./middlewares/rateLimitMiddleware');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Global custom middlewares
 app.use(requestLogger);
+app.use('/api', generalLimiter);
 
 // Mount routes
 app.use('/api/v1/games', gameRoutes);
