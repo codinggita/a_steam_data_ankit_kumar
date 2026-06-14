@@ -163,6 +163,63 @@ const getSummary = catchAsync(async (req, res) => {
   });
 });
 
+// Archive a game entry (soft-delete)
+const archiveGame = catchAsync(async (req, res) => {
+  const { appid } = req.params;
+  const archivedGame = await gameService.archiveGameByAppid(appid);
+
+  if (!archivedGame) {
+    return res.status(404).json({
+      success: false,
+      message: `Game with App ID ${appid} not found or already archived`
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Game with App ID ${appid} archived successfully`,
+    data: archivedGame
+  });
+});
+
+// Restore archived game
+const restoreGame = catchAsync(async (req, res) => {
+  const { appid } = req.params;
+  const restoredGame = await gameService.restoreGameByAppid(appid);
+
+  if (!restoredGame) {
+    return res.status(404).json({
+      success: false,
+      message: `Game with App ID ${appid} not found in archive or already active`
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Game with App ID ${appid} restored successfully`,
+    data: restoredGame
+  });
+});
+
+// Retrieve update history of a game
+const getGameHistory = catchAsync(async (req, res) => {
+  const { appid } = req.params;
+  const history = await gameService.getGameHistoryByAppid(appid);
+
+  if (!history) {
+    return res.status(404).json({
+      success: false,
+      message: `Game with App ID ${appid} not found`
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: `Game history retrieved successfully`,
+    data: history
+  });
+});
+
 module.exports = {
   getGames,
   getGameDetails,
@@ -171,5 +228,8 @@ module.exports = {
   updateGameDetails,
   deleteGame,
   checkExists,
-  getSummary
+  getSummary,
+  archiveGame,
+  restoreGame,
+  getGameHistory
 };
