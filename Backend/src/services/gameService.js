@@ -1,14 +1,16 @@
 const Game = require('../models/gameModel');
+const buildFilter = require('../utils/filterBuilder');
 
 /**
- * Fetch all games with pagination support
+ * Fetch all games with pagination support and filtering
  * @param {number} page - Page number
  * @param {number} limit - Limit of records per page
+ * @param {Object} filters - Filter criteria
  * @returns {Promise<Object>} - Paginated games object
  */
-const getAllGames = async (page = 1, limit = 10) => {
+const getAllGames = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
-  const query = { isDeleted: { $ne: true } };
+  const query = buildFilter(filters);
 
   const [games, totalItems] = await Promise.all([
     Game.find(query).skip(skip).limit(limit).lean(),
