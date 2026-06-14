@@ -9,6 +9,9 @@ router.route('/')
 
 router.get('/exists/:appid', gameController.checkExists);
 router.get('/:appid/summary', gameController.getSummary);
+router.get('/:appid/history', gameController.getGameHistory);
+router.patch('/:appid/archive', gameController.archiveGame);
+router.patch('/:appid/restore', gameController.restoreGame);
 
 router.route('/:appid')
   .get(gameController.getGameDetails)

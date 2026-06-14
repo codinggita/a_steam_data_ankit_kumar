@@ -8,8 +8,6 @@ const Game = require('../models/gameModel');
  */
 const getAllGames = async (page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
-  
-  // Filter out soft-deleted games
   const query = { isDeleted: { $ne: true } };
 
   const [games, totalItems] = await Promise.all([
@@ -45,7 +43,12 @@ const getGameByAppid = async (appid) => {
  * @returns {Promise<Object>} - Created game document
  */
 const createGame = async (gameData) => {
-  return await Game.create(gameData);
+  const game = new Game(gameData);
+  game.history.push({
+    action: 'CREATE',
+    changes: { message: 'Initial entry created' }
+  });
+  return await game.save();
 };
 
 /**
@@ -55,12 +58,27 @@ const createGame = async (gameData) => {
  * @returns {Promise<Object>} - Updated game document
  */
 const replaceGame = async (appid, gameData) => {
-  // We specify overwrite: true to replace the entire document except internal fields like _id
-  return await Game.findOneAndUpdate(
-    { appid, isDeleted: { $ne: true } },
-    gameData,
-    { new: true, runValidators: true, overwrite: true }
-  );
+  const game = await Game.findOne({ appid, isDeleted: { $ne: true } });
+  if (!game) return null;
+
+  const changes = {};
+  const fields = ['name', 'release_year', 'release_date', 'genres', 'categories', 'price', 'recommendations', 'developer', 'publisher'];
+
+  for (const field of fields) {
+    const oldValue = game[field];
+    const newValue = gameData[field];
+    if (newValue !== undefined && String(oldValue) !== String(newValue)) {
+      changes[field] = `Changed from "${oldValue || ''}" to "${newValue}"`;
+      game[field] = newValue;
+    }
+  }
+
+  game.history.push({
+    action: 'REPLACE',
+    changes
+  });
+
+  return await game.save();
 };
 
 /**
@@ -70,11 +88,25 @@ const replaceGame = async (appid, gameData) => {
  * @returns {Promise<Object>} - Updated game document
  */
 const updateGamePartial = async (appid, updateData) => {
-  return await Game.findOneAndUpdate(
-    { appid, isDeleted: { $ne: true } },
-    { $set: updateData },
-    { new: true, runValidators: true }
-  );
+  const game = await Game.findOne({ appid, isDeleted: { $ne: true } });
+  if (!game) return null;
+
+  const changes = {};
+  const fields = ['name', 'release_year', 'release_date', 'genres', 'categories', 'price', 'recommendations', 'developer', 'publisher'];
+
+  for (const key of Object.keys(updateData)) {
+    if (fields.includes(key) && String(game[key]) !== String(updateData[key])) {
+      changes[key] = `Updated from "${game[key] || ''}" to "${updateData[key]}"`;
+      game[key] = updateData[key];
+    }
+  }
+
+  game.history.push({
+    action: 'UPDATE',
+    changes
+  });
+
+  return await game.save();
 };
 
 /**
@@ -102,9 +134,57 @@ const checkGameExists = async (appid) => {
  * @returns {Promise<Object>} - Summarized game details
  */
 const getGameSummaryByAppid = async (appid) => {
-  // Select only basic summary fields
   return await Game.findOne({ appid, isDeleted: { $ne: true } })
     .select('appid name genres price recommendations developer publisher');
+};
+
+/**
+ * Archive a game (soft-delete)
+ * @param {string} appid - Game App ID
+ * @returns {Promise<Object>} - Archived game document
+ */
+const archiveGameByAppid = async (appid) => {
+  const game = await Game.findOne({ appid, isDeleted: { $ne: true } });
+  if (!game) return null;
+
+  game.isDeleted = true;
+  game.archivedAt = new Date();
+  game.history.push({
+    action: 'ARCHIVE',
+    changes: { message: 'Game entry soft-deleted and archived' }
+  });
+
+  return await game.save();
+};
+
+/**
+ * Restore an archived game
+ * @param {string} appid - Game App ID
+ * @returns {Promise<Object>} - Restored game document
+ */
+const restoreGameByAppid = async (appid) => {
+  const game = await Game.findOne({ appid, isDeleted: true });
+  if (!game) return null;
+
+  game.isDeleted = false;
+  game.archivedAt = undefined;
+  game.history.push({
+    action: 'RESTORE',
+    changes: { message: 'Game entry restored from archive' }
+  });
+
+  return await game.save();
+};
+
+/**
+ * Retrieve modification history of a game
+ * @param {string} appid - Game App ID
+ * @returns {Promise<Array>} - History logs of the game
+ */
+const getGameHistoryByAppid = async (appid) => {
+  // We allow fetching history even for soft-deleted games, so we query Game.findOne({ appid })
+  const game = await Game.findOne({ appid });
+  return game ? game.history : null;
 };
 
 module.exports = {
@@ -115,5 +195,8 @@ module.exports = {
   updateGamePartial,
   deleteGamePermanently,
   checkGameExists,
-  getGameSummaryByAppid
+  getGameSummaryByAppid,
+  archiveGameByAppid,
+  restoreGameByAppid,
+  getGameHistoryByAppid
 };
