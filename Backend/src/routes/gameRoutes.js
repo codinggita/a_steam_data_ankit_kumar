@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const gameController = require('../controllers/gameController');
 const subresourceController = require('../controllers/subresourceController');
+const reviewController = require('../controllers/reviewController');
 
 // Game endpoints mapped from route-rule.md
 router.route('/')
@@ -24,6 +25,15 @@ router.get('/:appid/leaderboards', subresourceController.getLeaderboards);
 router.get('/:appid/updates', subresourceController.getUpdates);
 router.get('/:appid/news', subresourceController.getNews);
 router.get('/:appid/related', subresourceController.getRelated);
+
+// Game Reviews endpoints
+router.route('/:appid/reviews')
+  .get(reviewController.getReviews)
+  .post(reviewController.addReview);
+
+router.route('/:appid/reviews/:reviewId')
+  .patch(reviewController.updateReview)
+  .delete(reviewController.deleteReview);
 
 router.route('/:appid')
   .get(gameController.getGameDetails)
