@@ -5,6 +5,12 @@ require('dotenv').config();
 const gameRoutes = require('./routes/gameRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const authRoutes = require('./routes/authRoutes');
+const jwtRoutes = require('./routes/jwtRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const protectedRoutes = require('./routes/protectedRoutes');
+const middlewareRoutes = require('./routes/middlewareRoutes');
+
+const requestLogger = require('./middlewares/loggerMiddleware');
 
 const app = express();
 
@@ -13,10 +19,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Global custom middlewares
+app.use(requestLogger);
+
 // Mount routes
 app.use('/api/v1/games', gameRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/jwt', jwtRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/protected', protectedRoutes);
+app.use('/api/v1/middleware', middlewareRoutes);
 
 // Basic Health Check API
 app.get('/api/v1/health', (req, res) => {

@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/userModel');
 const catchAsync = require('../utils/catchAsync');
 
+// Set to keep track of blacklisted/revoked tokens
+const revokedTokens = new Set();
+
 /**
  * Middleware to protect routes and verify JWT token
  */
@@ -30,11 +33,19 @@ const protect = catchAsync(async (req, res, next) => {
     });
   }
 
+  // 2) Check if token is blacklisted/revoked
+  if (revokedTokens.has(token)) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized: This token has been revoked'
+    });
+  }
+
   try {
-    // 2) Verify token
+    // 3) Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 3) Check if user still exists
+    // 4) Check if user still exists
     const currentUser = await User.findById(decoded.id).select('-password');
     if (!currentUser) {
       return res.status(401).json({
@@ -43,7 +54,7 @@ const protect = catchAsync(async (req, res, next) => {
       });
     }
 
-    // 4) Grant access to protected route
+    // 5) Grant access to protected route
     req.user = currentUser;
     next();
   } catch (error) {
@@ -72,5 +83,6 @@ const restrictTo = (...roles) => {
 
 module.exports = {
   protect,
-  restrictTo
+  restrictTo,
+  revokedTokens
 };
